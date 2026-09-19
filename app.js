@@ -17,13 +17,7 @@ const api = p => SUPABASE_URL + "/rest/v1/" + p;
 
 async function get(p) {
 
-  const u =
-    api(p) +
-    (p.includes("?") ? "&" : "?") +
-    "_ts=" +
-    Date.now();
-
-  const r = await fetch(u, {
+  const r = await fetch(api(p), {
     method: "GET",
     headers: headers,
     cache: "no-store"
