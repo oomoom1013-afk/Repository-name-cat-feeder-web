@@ -1,5 +1,3 @@
-// app.js - CAT FEEDER Remote Feed + 1 second update
-
 const SUPABASE_URL =
   "https://hjvrsnbcmgkviquzjjdd.supabase.co";
 
@@ -16,6 +14,10 @@ function api(path) {
   return SUPABASE_URL + "/rest/v1/" + path;
 }
 
+
+// =========================
+// GET
+// =========================
 async function get(path) {
   const r = await fetch(api(path), {
     method: "GET",
@@ -23,10 +25,17 @@ async function get(path) {
     cache: "no-store"
   });
 
-  if (!r.ok) throw new Error("HTTP " + r.status);
+  if (!r.ok) {
+    throw new Error("HTTP " + r.status);
+  }
+
   return await r.json();
 }
 
+
+// =========================
+// POST
+// =========================
 async function post(path, data) {
   const r = await fetch(api(path), {
     method: "POST",
@@ -38,24 +47,52 @@ async function post(path, data) {
   });
 
   if (!r.ok) {
-    const t = await r.text();
-    throw new Error("HTTP " + r.status + " " + t);
+    const text = await r.text();
+    throw new Error(
+      "HTTP " + r.status + " " + text
+    );
   }
 
   return true;
 }
 
-function setText(id, value) {
-  const el = document.getElementById(id);
-  if (el) el.textContent = value;
+
+// =========================
+// เวลา
+// =========================
+function updateClock() {
+
+  const now = new Date();
+
+  const time =
+    now.toLocaleTimeString("th-TH");
+
+  const date =
+    now.toLocaleDateString("th-TH");
+
+  const clock =
+    document.getElementById("clock");
+
+  const dateEl =
+    document.getElementById("date");
+
+  if (clock) {
+    clock.textContent = time;
+  }
+
+  if (dateEl) {
+    dateEl.textContent = date;
+  }
 }
 
 
-// =============================
-// อ่านข้อมูลเซนเซอร์
-// =============================
+// =========================
+// SENSOR
+// =========================
 async function sensor() {
+
   try {
+
     const rows = await get(
       "cat_feeder?select=cat_distance,food_level,food_percent,cat_detected,created_at&order=id.desc&limit=1"
     );
@@ -64,124 +101,254 @@ async function sensor() {
 
     const d = rows[0];
 
-    setText(
-      "catDistance",
-      d.cat_distance != null
-        ? Number(d.cat_distance).toFixed(1) + " cm"
-        : "-"
-    );
 
-    setText(
-      "foodLevel",
-      d.food_level != null
-        ? Number(d.food_level).toFixed(1) + " cm"
-        : "-"
-    );
+    // ระยะห่างแมว
+    const distance =
+      document.getElementById("catDistance");
 
-    setText(
-      "foodPercent",
-      d.food_percent != null
-        ? d.food_percent + "%"
-        : "-"
-    );
+    if (distance) {
 
-    const cat = document.getElementById("catDetected");
-
-    if (cat) {
-      cat.textContent = d.cat_detected
-        ? "พบแมว"
-        : "ไม่พบแมว";
+      distance.textContent =
+        d.cat_distance != null
+          ? Number(d.cat_distance).toFixed(1)
+          : "--";
     }
 
-    const time = document.getElementById("lastUpdate");
 
-    if (time && d.created_at) {
-      time.textContent =
-        new Date(d.created_at).toLocaleTimeString("th-TH");
+    // สถานะแมว
+    const catStatus =
+      document.getElementById("catStatus");
+
+    if (catStatus) {
+
+      if (d.cat_detected) {
+        catStatus.textContent = "🐱 พบแมว";
+        catStatus.className =
+          "status detected";
+      } else {
+        catStatus.textContent =
+          "ไม่พบแมว";
+
+        catStatus.className =
+          "status";
+      }
+    }
+
+
+    // เปอร์เซ็นต์อาหาร
+    const foodPercent =
+      document.getElementById(
+        "foodPercent"
+      );
+
+    if (foodPercent) {
+
+      foodPercent.textContent =
+        d.food_percent != null
+          ? d.food_percent + "%"
+          : "--%";
+    }
+
+
+    // ระดับอาหาร
+    const foodLevel =
+      document.getElementById(
+        "foodLevel"
+      );
+
+    if (foodLevel) {
+
+      foodLevel.textContent =
+        d.food_level != null
+          ? Number(d.food_level).toFixed(1)
+          : "--";
+    }
+
+
+    // แถบอาหาร
+    const foodBar =
+      document.getElementById(
+        "foodBar"
+      );
+
+    if (foodBar) {
+
+      let percent =
+        Number(d.food_percent);
+
+      if (isNaN(percent)) {
+        percent = 0;
+      }
+
+      percent =
+        Math.max(
+          0,
+          Math.min(100, percent)
+        );
+
+      foodBar.style.width =
+        percent + "%";
+    }
+
+
+    // สถานะการเชื่อมต่อ
+    const connection =
+      document.getElementById(
+        "connection"
+      );
+
+    if (connection) {
+
+      connection.textContent =
+        "ออนไลน์";
+
+      connection.className =
+        "badge online";
     }
 
   } catch (e) {
-    console.error("Sensor Error:", e);
+
+    console.error(
+      "Sensor Error:",
+      e
+    );
+
+    const connection =
+      document.getElementById(
+        "connection"
+      );
+
+    if (connection) {
+
+      connection.textContent =
+        "ออฟไลน์";
+
+      connection.className =
+        "badge offline";
+    }
   }
 }
 
 
-// =============================
-// ตารางเวลาให้อาหาร
-// =============================
+// =========================
+// SCHEDULE
+// =========================
 async function schedule() {
+
   try {
+
     const rows = await get(
       "feed_schedule?select=slot,hour,minute,enabled&order=slot.asc"
     );
 
-    rows.forEach(s => {
-      const h = String(s.hour).padStart(2, "0");
-      const m = String(s.minute).padStart(2, "0");
-
-      setText(
-        "time" + s.slot,
-        h + ":" + m
+    const box =
+      document.getElementById(
+        "schedules"
       );
 
-      const enabled =
-        document.getElementById(
-          "enabled" + s.slot
-        );
+    if (!box) return;
 
-      if (enabled) {
-        enabled.checked = !!s.enabled;
-      }
+    box.innerHTML = "";
+
+    rows.forEach(s => {
+
+      const h =
+        String(s.hour).padStart(2, "0");
+
+      const m =
+        String(s.minute).padStart(2, "0");
+
+      const div =
+        document.createElement("div");
+
+      div.className = "schedule-item";
+
+      div.innerHTML = `
+        <b>มื้อที่ ${s.slot}</b>
+        <span>${h}:${m}</span>
+        <span>
+          ${s.enabled ? "เปิดใช้งาน" : "ปิด"}
+        </span>
+      `;
+
+      box.appendChild(div);
     });
 
   } catch (e) {
-    console.error("Schedule Error:", e);
+
+    console.error(
+      "Schedule Error:",
+      e
+    );
   }
 }
 
 
-// =============================
-// ประวัติการตรวจพบแมว
-// =============================
+// =========================
+// HISTORY
+// =========================
 async function history() {
+
   try {
+
     const rows = await get(
       "cat_history?select=id,created_at&order=id.desc&limit=20"
     );
 
-    const list =
-      document.getElementById("historyList");
+    const box =
+      document.getElementById(
+        "history"
+      );
 
-    if (!list) return;
+    if (!box) return;
 
-    list.innerHTML = "";
+    box.innerHTML = "";
+
+    if (!rows.length) {
+
+      box.textContent =
+        "ยังไม่มีประวัติ";
+
+      return;
+    }
 
     rows.forEach(r => {
-      const li = document.createElement("li");
 
-      li.textContent =
-        new Date(r.created_at)
-          .toLocaleString("th-TH");
+      const div =
+        document.createElement("div");
 
-      list.appendChild(li);
+      div.textContent =
+        new Date(
+          r.created_at
+        ).toLocaleString("th-TH");
+
+      box.appendChild(div);
     });
 
   } catch (e) {
-    console.error("History Error:", e);
+
+    console.error(
+      "History Error:",
+      e
+    );
   }
 }
 
 
-// =============================
-// ให้อาหารทันที
-// =============================
+// =========================
+// FEED NOW
+// =========================
 async function feedNow() {
 
   const btn =
-    document.getElementById("feedBtn");
+    document.getElementById(
+      "feedBtn"
+    );
 
   const msg =
-    document.getElementById("feedMessage");
+    document.getElementById(
+      "feedMessage"
+    );
 
   if (btn) {
     btn.disabled = true;
@@ -202,6 +369,7 @@ async function feedNow() {
     );
 
     if (msg) {
+
       msg.textContent =
         "ส่งคำสั่งแล้ว รอ ESP32 สั่ง Servo...";
     }
@@ -214,6 +382,7 @@ async function feedNow() {
     );
 
     if (msg) {
+
       msg.textContent =
         "ส่งคำสั่งไม่สำเร็จ: " +
         e.message;
@@ -232,39 +401,66 @@ async function feedNow() {
 }
 
 
-// =============================
-// เชื่อมปุ่มให้อาหาร
-// =============================
+// =========================
+// ปุ่มให้อาหาร
+// =========================
 function setupFeedButton() {
 
   const btn =
-    document.getElementById("feedBtn");
+    document.getElementById(
+      "feedBtn"
+    );
 
   if (btn) {
-    btn.onclick = feedNow;
+
+    btn.addEventListener(
+      "click",
+      feedNow
+    );
   }
 }
 
 
-// =============================
-// เริ่มระบบ
-// =============================
+// =========================
+// START
+// =========================
 async function startApp() {
 
   setupFeedButton();
+
+  updateClock();
 
   await sensor();
   await schedule();
   await history();
 
-  // เซนเซอร์อัปเดตทุก 1 วินาที
-  setInterval(sensor, 1000);
 
-  // ตารางเวลาอัปเดตทุก 5 วินาที
-  setInterval(schedule, 5000);
+  // เวลา
+  setInterval(
+    updateClock,
+    1000
+  );
 
-  // ประวัติอัปเดตทุก 5 วินาที
-  setInterval(history, 5000);
+
+  // Sensor ทุก 1 วินาที
+  setInterval(
+    sensor,
+    1000
+  );
+
+
+  // ตารางเวลา
+  setInterval(
+    schedule,
+    5000
+  );
+
+
+  // ประวัติ
+  setInterval(
+    history,
+    5000
+  );
 }
 
 
