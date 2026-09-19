@@ -1,672 +1,274 @@
-// ============================================
-// SUPABASE
-// ============================================
+// app.js - CAT FEEDER Remote Feed + 1 second update
+
+const SUPABASE_URL =
+  "https://hjvrsnbcmgkviquzjjdd.supabase.co";
+
+const SUPABASE_KEY =
+  "sb_publishable_AzEhl3KzH9YWsuyzzkGZPg_Cog4g9Fz";
 
 const headers = {
-  "apikey": SUPABASE_KEY,
-  "Authorization": "Bearer " + SUPABASE_KEY,
+  apikey: SUPABASE_KEY,
+  Authorization: "Bearer " + SUPABASE_KEY,
   "Content-Type": "application/json"
 };
 
-const api = p => SUPABASE_URL + "/rest/v1/" + p;
+function api(path) {
+  return SUPABASE_URL + "/rest/v1/" + path;
+}
 
-
-// ============================================
-// GET
-// ============================================
-
-async function get(p) {
-
-  const r = await fetch(api(p), {
+async function get(path) {
+  const r = await fetch(api(path), {
     method: "GET",
-    headers: headers,
+    headers,
     cache: "no-store"
   });
 
-  if (!r.ok) {
-    throw new Error("HTTP " + r.status);
-  }
-
+  if (!r.ok) throw new Error("HTTP " + r.status);
   return await r.json();
 }
 
-
-// ============================================
-// PATCH
-// ============================================
-
-async function patch(p, body) {
-
-  const r = await fetch(api(p), {
-    method: "PATCH",
-
+async function post(path, data) {
+  const r = await fetch(api(path), {
+    method: "POST",
     headers: {
       ...headers,
-      "Prefer": "return=minimal"
+      Prefer: "return=minimal"
     },
-
-    body: JSON.stringify(body)
+    body: JSON.stringify(data)
   });
 
   if (!r.ok) {
-    throw new Error("HTTP " + r.status);
+    const t = await r.text();
+    throw new Error("HTTP " + r.status + " " + t);
   }
+
+  return true;
+}
+
+function setText(id, value) {
+  const el = document.getElementById(id);
+  if (el) el.textContent = value;
 }
 
 
-// ============================================
-// CONNECTION STATUS
-// ============================================
-
-function conn(ok) {
-
-  const e =
-    document.getElementById("connection");
-
-  if (!e) return;
-
-  e.textContent =
-    ok ? "● ออนไลน์" : "● ออฟไลน์";
-
-  e.className =
-    "badge " + (ok ? "online" : "offline");
-}
-
-
-// ============================================
-// CLOCK
-// ============================================
-
-function clock() {
-
-  const n = new Date();
-
-  const clockEl =
-    document.getElementById("clock");
-
-  const dateEl =
-    document.getElementById("date");
-
-  if (clockEl) {
-
-    clockEl.textContent =
-      n.toLocaleTimeString("th-TH", {
-        timeZone: "Asia/Bangkok",
-        hour12: false
-      });
-
-  }
-
-  if (dateEl) {
-
-    dateEl.textContent =
-      n.toLocaleDateString("th-TH", {
-        timeZone: "Asia/Bangkok",
-        year: "numeric",
-        month: "long",
-        day: "numeric"
-      });
-
-  }
-}
-
-clock();
-
-setInterval(clock, 1000);
-
-
-// ============================================
-// SENSOR
-// อัปเดตทุก 1 วินาที
-// ============================================
-
+// =============================
+// อ่านข้อมูลเซนเซอร์
+// =============================
 async function sensor() {
-
   try {
-
-    const a = await get(
-      "cat_feeder?select=cat_distance,food_level,food_percent,cat_detected,created_at&order=created_at.desc&limit=1"
+    const rows = await get(
+      "cat_feeder?select=cat_distance,food_level,food_percent,cat_detected,created_at&order=id.desc&limit=1"
     );
 
-    if (!a || !a.length) {
+    if (!rows.length) return;
 
-      console.log("ยังไม่มีข้อมูล Sensor");
+    const d = rows[0];
 
-      return;
-    }
-
-    const d = a[0];
-
-    // --------------------------
-    // Cat Distance
-    // --------------------------
-
-    const catDistance =
-      document.getElementById("catDistance");
-
-    if (catDistance) {
-
-      const distance =
-        Number(d.cat_distance);
-
-      catDistance.textContent =
-        Number.isFinite(distance)
-          ? distance.toFixed(1)
-          : "-";
-
-    }
-
-
-    // --------------------------
-    // Cat Status
-    // --------------------------
-
-    const catStatus =
-      document.getElementById("catStatus");
-
-    if (catStatus) {
-
-      catStatus.textContent =
-        d.cat_detected
-          ? "🐱 พบแมว"
-          : "ไม่มีแมว";
-
-    }
-
-
-    // --------------------------
-    // Food Percent
-    // --------------------------
-
-    let p =
-      Number(d.food_percent);
-
-    if (!Number.isFinite(p)) {
-      p = 0;
-    }
-
-    p =
-      Math.max(
-        0,
-        Math.min(100, p)
-      );
-
-
-    const foodPercent =
-      document.getElementById("foodPercent");
-
-    if (foodPercent) {
-
-      foodPercent.textContent =
-        p + "%";
-
-    }
-
-
-    // --------------------------
-    // Food Level
-    // --------------------------
-
-    const foodLevel =
-      document.getElementById("foodLevel");
-
-    if (foodLevel) {
-
-      const level =
-        Number(d.food_level);
-
-      foodLevel.textContent =
-        Number.isFinite(level)
-          ? level.toFixed(1)
-          : "-";
-
-    }
-
-
-    // --------------------------
-    // Food Progress Bar
-    // --------------------------
-
-    const foodBar =
-      document.getElementById("foodBar");
-
-    if (foodBar) {
-
-      foodBar.style.width =
-        p + "%";
-
-    }
-
-
-    // --------------------------
-    // Connection
-    // --------------------------
-
-    conn(true);
-
-
-    // Debug
-    console.log(
-      "Sensor:",
-      d
+    setText(
+      "catDistance",
+      d.cat_distance != null
+        ? Number(d.cat_distance).toFixed(1) + " cm"
+        : "-"
     );
 
+    setText(
+      "foodLevel",
+      d.food_level != null
+        ? Number(d.food_level).toFixed(1) + " cm"
+        : "-"
+    );
+
+    setText(
+      "foodPercent",
+      d.food_percent != null
+        ? d.food_percent + "%"
+        : "-"
+    );
+
+    const cat = document.getElementById("catDetected");
+
+    if (cat) {
+      cat.textContent = d.cat_detected
+        ? "พบแมว"
+        : "ไม่พบแมว";
+    }
+
+    const time = document.getElementById("lastUpdate");
+
+    if (time && d.created_at) {
+      time.textContent =
+        new Date(d.created_at).toLocaleTimeString("th-TH");
+    }
+
+  } catch (e) {
+    console.error("Sensor Error:", e);
   }
-
-  catch (e) {
-
-    console.error(
-      "Sensor Error:",
-      e
-    );
-
-    conn(false);
-
-  }
-
 }
 
 
-// ============================================
-// ตารางเวลา
-// ============================================
-
+// =============================
+// ตารางเวลาให้อาหาร
+// =============================
 async function schedule() {
-
   try {
-
-    const a = await get(
+    const rows = await get(
       "feed_schedule?select=slot,hour,minute,enabled&order=slot.asc"
     );
 
-    const box =
-      document.getElementById("schedules");
+    rows.forEach(s => {
+      const h = String(s.hour).padStart(2, "0");
+      const m = String(s.minute).padStart(2, "0");
 
-    if (!box) {
-
-      console.warn(
-        "ไม่พบ element #schedules"
+      setText(
+        "time" + s.slot,
+        h + ":" + m
       );
 
-      return;
-    }
+      const enabled =
+        document.getElementById(
+          "enabled" + s.slot
+        );
 
-    box.innerHTML = "";
+      if (enabled) {
+        enabled.checked = !!s.enabled;
+      }
+    });
 
-
-    for (
-      let s = 1;
-      s <= 3;
-      s++
-    ) {
-
-      const d =
-        a.find(
-          x => Number(x.slot) === s
-        ) ||
-        {
-          hour: 0,
-          minute: 0,
-          enabled: false
-        };
-
-
-      const v =
-        String(d.hour)
-          .padStart(2, "0") +
-        ":" +
-        String(d.minute)
-          .padStart(2, "0");
-
-
-      const r =
-        document.createElement("div");
-
-      r.className =
-        "schedule-row";
-
-
-      r.innerHTML = `
-
-        <b>เวลา ${s}</b>
-
-        <input
-          type="time"
-          id="time-${s}"
-          value="${v}"
-        >
-
-        <label>
-
-          <input
-            type="checkbox"
-            id="enable-${s}"
-            ${d.enabled ? "checked" : ""}
-          >
-
-          เปิด
-
-        </label>
-
-        <button
-          onclick="saveSchedule(${s})"
-        >
-          บันทึก
-        </button>
-
-      `;
-
-
-      box.appendChild(r);
-
-    }
-
+  } catch (e) {
+    console.error("Schedule Error:", e);
   }
-
-  catch (e) {
-
-    console.error(
-      "Schedule Error:",
-      e
-    );
-
-    const box =
-      document.getElementById("schedules");
-
-    if (box) {
-
-      box.textContent =
-        "โหลดตารางเวลาไม่สำเร็จ";
-
-    }
-
-  }
-
 }
 
 
-// ============================================
-// บันทึกตารางเวลา
-// ============================================
-
-async function saveSchedule(s) {
-
-  const timeEl =
-    document.getElementById(
-      "time-" + s
+// =============================
+// ประวัติการตรวจพบแมว
+// =============================
+async function history() {
+  try {
+    const rows = await get(
+      "cat_history?select=id,created_at&order=id.desc&limit=20"
     );
 
-  const enableEl =
-    document.getElementById(
-      "enable-" + s
-    );
+    const list =
+      document.getElementById("historyList");
+
+    if (!list) return;
+
+    list.innerHTML = "";
+
+    rows.forEach(r => {
+      const li = document.createElement("li");
+
+      li.textContent =
+        new Date(r.created_at)
+          .toLocaleString("th-TH");
+
+      list.appendChild(li);
+    });
+
+  } catch (e) {
+    console.error("History Error:", e);
+  }
+}
 
 
-  if (!timeEl || !enableEl) {
+// =============================
+// ให้อาหารทันที
+// =============================
+async function feedNow() {
 
-    alert(
-      "ไม่พบช่องตั้งเวลา"
-    );
+  const btn =
+    document.getElementById("feedBtn");
 
-    return;
+  const msg =
+    document.getElementById("feedMessage");
+
+  if (btn) {
+    btn.disabled = true;
   }
 
-
-  const v =
-    timeEl.value;
-
-  const en =
-    enableEl.checked;
-
-
-  if (!v) {
-
-    alert(
-      "กรุณาเลือกเวลา"
-    );
-
-    return;
+  if (msg) {
+    msg.textContent =
+      "กำลังส่งคำสั่งให้อาหาร...";
   }
-
-
-  const [hour, minute] =
-    v.split(":").map(Number);
-
 
   try {
 
-    await patch(
-      "feed_schedule?slot=eq." + s,
+    await post(
+      "feed_commands",
       {
-        hour: hour,
-        minute: minute,
-        enabled: en
+        executed: false
       }
     );
 
+    if (msg) {
+      msg.textContent =
+        "ส่งคำสั่งแล้ว รอ ESP32 สั่ง Servo...";
+    }
 
-    alert(
-      "บันทึกเวลา " +
-      s +
-      " เรียบร้อย"
-    );
-
-
-    await schedule();
-
-  }
-
-  catch (e) {
+  } catch (e) {
 
     console.error(
-      "Save Schedule Error:",
+      "Feed Command Error:",
       e
     );
-
-    alert(
-      "บันทึกไม่สำเร็จ: " +
-      e.message
-    );
-
-  }
-
-}
-
-
-// ============================================
-// ประวัติแมว
-// ============================================
-
-async function history() {
-
-  try {
-
-    const a = await get(
-      "cat_history?select=created_at&order=created_at.desc&limit=20"
-    );
-
-
-    const b =
-      document.getElementById(
-        "history"
-      );
-
-
-    if (!b) {
-
-      console.warn(
-        "ไม่พบ element #history"
-      );
-
-      return;
-    }
-
-
-    if (!a || !a.length) {
-
-      b.innerHTML =
-        '<div class="empty">ยังไม่มีประวัติ</div>';
-
-      return;
-    }
-
-
-    b.innerHTML =
-
-      a.map(
-        (x, i) => {
-
-          const time =
-            new Date(
-              x.created_at
-            ).toLocaleString(
-              "th-TH",
-              {
-                timeZone:
-                  "Asia/Bangkok"
-              }
-            );
-
-
-          return `
-            <div class="history-item">
-              ${i + 1}. ${time}
-            </div>
-          `;
-
-        }
-      ).join("");
-
-  }
-
-  catch (e) {
-
-    console.error(
-      "History Error:",
-      e
-    );
-
-
-    const b =
-      document.getElementById(
-        "history"
-      );
-
-
-    if (b) {
-
-      b.textContent =
-        "โหลดประวัติไม่สำเร็จ";
-
-    }
-
-  }
-
-}
-
-
-// ============================================
-// ปุ่มให้อาหาร
-// ============================================
-
-function setupFeedButton() {
-
-  const feedBtn =
-    document.getElementById(
-      "feedBtn"
-    );
-
-
-  if (!feedBtn) {
-
-    console.warn(
-      "ไม่พบ #feedBtn"
-    );
-
-    return;
-  }
-
-
-  feedBtn.onclick = function () {
-
-    const msg =
-      document.getElementById(
-        "feedMessage"
-      );
-
 
     if (msg) {
-
       msg.textContent =
-        "ปุ่มนี้รอระบบ feed_command เพื่อสั่ง Servo ผ่านอินเทอร์เน็ต";
-
+        "ส่งคำสั่งไม่สำเร็จ: " +
+        e.message;
     }
 
-  };
+  } finally {
 
+    setTimeout(() => {
+
+      if (btn) {
+        btn.disabled = false;
+      }
+
+    }, 1500);
+  }
 }
 
 
-// ============================================
+// =============================
+// เชื่อมปุ่มให้อาหาร
+// =============================
+function setupFeedButton() {
+
+  const btn =
+    document.getElementById("feedBtn");
+
+  if (btn) {
+    btn.onclick = feedNow;
+  }
+}
+
+
+// =============================
 // เริ่มระบบ
-// ============================================
-
+// =============================
 async function startApp() {
-
-  console.log(
-    "🐱 CAT FEEDER WEB START"
-  );
-
 
   setupFeedButton();
 
-
-  // โหลดครั้งแรก
   await sensor();
-
   await schedule();
-
   await history();
 
+  // เซนเซอร์อัปเดตทุก 1 วินาที
+  setInterval(sensor, 1000);
 
-  // Sensor ทุก 1 วินาที
-  setInterval(
-    sensor,
-    1000
-  );
+  // ตารางเวลาอัปเดตทุก 5 วินาที
+  setInterval(schedule, 5000);
 
-
-  // ตารางเวลาทุก 10 วินาที
-  setInterval(
-    schedule,
-    10000
-  );
-
-
-  // ประวัติทุก 3 วินาที
-  setInterval(
-    history,
-    3000
-  );
-
+  // ประวัติอัปเดตทุก 5 วินาที
+  setInterval(history, 5000);
 }
 
 
-// ============================================
-// รอ HTML โหลดเสร็จก่อน
-// ============================================
-
-if (
-  document.readyState === "loading"
-) {
-
-  document.addEventListener(
-    "DOMContentLoaded",
-    startApp
-  );
-
-} else {
-
-  startApp();
-
-}
+document.addEventListener(
+  "DOMContentLoaded",
+  startApp
+);
