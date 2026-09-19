@@ -1,8 +1,3 @@
-const SUPABASE_URL =
-  "https://hjvrsnbcmgkviquzjjdd.supabase.co";
-
-const SUPABASE_KEY =
-  "sb_publishable_AzEhl3KzH9YWsuyzzkGZPg_Cog4g9Fz";
 
 const headers = {
   apikey: SUPABASE_KEY,
