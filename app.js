@@ -135,10 +135,7 @@ async function sensor() {
         "cat_feeder?select=cat_distance,food_level,food_percent,cat_detected,created_at&order=id.desc&limit=1"
       );
 
-    if (
-      !rows.length
-    ) {
-
+    if (!rows.length) {
       return;
     }
 
@@ -177,9 +174,7 @@ async function sensor() {
 
     if (catStatus) {
 
-      if (
-        d.cat_detected
-      ) {
+      if (d.cat_detected) {
 
         catStatus.textContent =
           "🐱 พบแมว";
@@ -252,10 +247,7 @@ async function sensor() {
           d.food_percent
         );
 
-      if (
-        isNaN(percent)
-      ) {
-
+      if (isNaN(percent)) {
         percent = 0;
       }
 
@@ -334,17 +326,17 @@ async function schedule() {
       );
 
     if (!box) {
-
       return;
     }
 
     box.innerHTML = "";
 
 
-    // ถ้าไม่มีข้อมูล
-    if (
-      !rows.length
-    ) {
+    // -----------------------------
+    // ไม่มีข้อมูล
+    // -----------------------------
+
+    if (!rows.length) {
 
       box.textContent =
         "ยังไม่มีการตั้งเวลา";
@@ -353,7 +345,10 @@ async function schedule() {
     }
 
 
+    // -----------------------------
     // สร้างแต่ละมื้อ
+    // -----------------------------
+
     rows.forEach(
       s => {
 
@@ -379,56 +374,47 @@ async function schedule() {
             "div"
           );
 
+
+        // สำคัญ:
+        // ใช้ schedule-row ให้ตรงกับ CSS
         div.className =
-          "schedule-item";
+          "schedule-row";
 
 
         div.innerHTML = `
 
-          <div>
-            <b>มื้อที่ ${s.slot}</b>
-          </div>
+          <b>
+            มื้อที่ ${s.slot}
+          </b>
 
-          <div>
+          <input
+            type="time"
+            id="time-${s.slot}"
+            value="${h}:${m}"
+          >
+
+          <label>
 
             <input
-              type="time"
-              id="time-${s.slot}"
-              value="${h}:${m}"
+              type="checkbox"
+              id="enable-${s.slot}"
+              ${s.enabled ? "checked" : ""}
             >
 
-          </div>
+            เปิดใช้งาน
 
-          <div>
+          </label>
 
-            <label>
+          <button
+            type="button"
+            onclick="saveSchedule(${s.slot})"
+          >
+            บันทึก
+          </button>
 
-              <input
-                type="checkbox"
-                id="enable-${s.slot}"
-                ${s.enabled ? "checked" : ""}
-              >
-
-              เปิดใช้งาน
-
-            </label>
-
-          </div>
-
-          <div>
-
-            <button
-              onclick="saveSchedule(${s.slot})"
-            >
-              บันทึก
-            </button>
-
-          </div>
-
-          <div
+          <span
             id="schedule-msg-${s.slot}"
-            class="schedule-message"
-          ></div>
+          ></span>
 
         `;
 
@@ -465,9 +451,7 @@ async function schedule() {
 // SAVE SCHEDULE
 // =====================================================
 
-async function saveSchedule(
-  slot
-) {
+async function saveSchedule(slot) {
 
   const timeInput =
     document.getElementById(
@@ -485,21 +469,20 @@ async function saveSchedule(
     );
 
 
-  if (
-    !timeInput
-  ) {
-
+  if (!timeInput) {
     return;
   }
 
+
+  // -----------------------------
+  // อ่านเวลา
+  // -----------------------------
 
   const time =
     timeInput.value;
 
 
-  if (
-    !time
-  ) {
+  if (!time) {
 
     if (msg) {
 
@@ -525,6 +508,10 @@ async function saveSchedule(
       parts[1]
     );
 
+
+  // -----------------------------
+  // อ่านสถานะเปิด/ปิด
+  // -----------------------------
 
   const enabled =
     enableInput
@@ -571,9 +558,11 @@ async function saveSchedule(
       );
 
 
-    if (
-      !r.ok
-    ) {
+    // -----------------------------
+    // ตรวจสอบผลลัพธ์
+    // -----------------------------
+
+    if (!r.ok) {
 
       const text =
         await r.text();
@@ -587,20 +576,15 @@ async function saveSchedule(
     }
 
 
+    // -----------------------------
+    // สำเร็จ
+    // -----------------------------
+
     if (msg) {
 
       msg.textContent =
         "บันทึกแล้ว ✓";
     }
-
-
-    // รอแป๊บหนึ่งแล้วโหลดข้อมูลใหม่
-    setTimeout(
-      () => {
-        schedule();
-      },
-      500
-    );
 
 
   } catch (e) {
@@ -639,16 +623,13 @@ async function history() {
       );
 
     if (!box) {
-
       return;
     }
 
     box.innerHTML = "";
 
 
-    if (
-      !rows.length
-    ) {
+    if (!rows.length) {
 
       box.textContent =
         "ยังไม่มีประวัติ";
@@ -664,6 +645,9 @@ async function history() {
           document.createElement(
             "div"
           );
+
+        div.className =
+          "history-item";
 
         div.textContent =
           new Date(
@@ -809,32 +793,39 @@ async function startApp() {
   await history();
 
 
+  // -----------------------------
   // Clock
+  // -----------------------------
+
   setInterval(
     updateClock,
     1000
   );
 
 
+  // -----------------------------
   // Sensor
+  // -----------------------------
+
   setInterval(
     sensor,
     5000
   );
 
 
-  // Schedule
-  setInterval(
-    schedule,
-    10000
-  );
-
-
+  // -----------------------------
   // History
+  // -----------------------------
+
   setInterval(
     history,
     10000
   );
+
+
+  // สำคัญ:
+  // ไม่มี setInterval(schedule)
+  // เพราะจะทำให้ช่องเวลารีเฟรชตอนกำลังแก้
 }
 
 
