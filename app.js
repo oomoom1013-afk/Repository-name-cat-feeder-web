@@ -809,7 +809,7 @@ async function startApp() {
 
   setInterval(
     sensor,
-    5000
+    2000
   );
 
 
